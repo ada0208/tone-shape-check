@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tone Shape Check · TypePinyin Lab</title>
+<style>
+:root{color-scheme:light;--cream:#FFF9F0;--navy:#183B59;--coral:#F05D5E}
+*{box-sizing:border-box}
+body{margin:0;background:var(--cream);color:var(--navy);font-family:system-ui,-apple-system,"Segoe UI",sans-serif;line-height:1.5}
+main{width:min(100%,560px);margin:auto;padding:24px 16px;min-height:100svh;display:flex;flex-direction:column;justify-content:center}
+.brand{font-size:.8rem;font-weight:700;letter-spacing:.08em;margin:0 0 16px}
+.card{background:#fffdfa;border:1px solid #183b592b;border-radius:20px;padding:24px 20px;box-shadow:0 8px 30px #183b5908}
+h1{font-size:clamp(1.65rem,6vw,2.2rem);line-height:1.2;margin:0 0 16px;font-weight:650;letter-spacing:-.025em}
+p{margin:0 0 20px}
+button,a.action{font:inherit;font-weight:650;min-height:52px;border:2px solid var(--navy);border-radius:12px;padding:12px 16px;background:transparent;color:var(--navy);cursor:pointer;text-align:center;text-decoration:none;display:inline-flex;align-items:center;justify-content:center}
+button:hover,a.action:hover{background:#183b5909}
+button:focus-visible,a:focus-visible{outline:3px solid var(--navy);outline-offset:4px}
+.primary{background:var(--navy);color:var(--cream);width:100%}
+.primary:hover{background:#244e70}
+.play{width:100%;margin-bottom:20px}
+.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.answer{flex-direction:column;padding:12px 8px;min-height:120px;gap:4px;position:relative}
+.answer svg{width:100%;max-width:132px;height:64px;overflow:visible}
+.answer.selected{border-color:var(--coral);background:#F05D5E18}
+.answer.correct{border-color:var(--coral);background:#F05D5E25}
+.answer[disabled]{cursor:default;opacity:1;color:var(--navy)}
+.feedback{margin:20px 0 0;font-size:1rem}
+.feedback:empty{display:none}
+.audio-status{font-size:.9rem;margin:0 0 16px}
+.audio-status:empty{display:none}
+.next{margin-top:20px;width:100%}
+.actions{display:grid;gap:12px;margin-top:24px}
+[hidden]{display:none!important}
+@media(max-width:360px){main{padding:16px 12px}.card{padding:20px 16px}.grid{gap:10px}}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important;scroll-behavior:auto!important}}
+</style>
+</head>
+<body>
+<main>
+<p class="brand">TypePinyin Lab · Tone Shape Check</p>
+<section class="card" aria-label="Tone Shape Check">
+<div id="intro">
+<h1 id="intro-title" tabindex="-1">Can you hear the tone shape?</h1>
+<p>3 tiny listening checks · No score</p>
+<button id="start" class="primary">Start</button>
+</div>
+<div id="question" hidden>
+<button id="play" class="play" aria-label="Play audio for the current Mandarin syllable">Play audio</button>
+<p id="instruction" tabindex="-1">Listen once, then choose the path.</p>
+<p id="audio-status" class="audio-status" role="status" aria-live="polite"></p>
+<div class="grid" role="group" aria-label="Choose a tone pitch path" aria-describedby="instruction">
+<button class="answer" data-tone="1" aria-label="1st tone: high-level horizontal pitch" aria-pressed="false"><svg viewBox="0 0 140 70" aria-hidden="true"><path d="M15 16 H125" fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round"/></svg><span>1st</span></button>
+<button class="answer" data-tone="2" aria-label="2nd tone: rising pitch" aria-pressed="false"><svg viewBox="0 0 140 70" aria-hidden="true"><path d="M15 48 L125 16" fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round"/></svg><span>2nd</span></button>
+<button class="answer" data-tone="3" aria-label="3rd tone: low pitch dipping then rising" aria-pressed="false"><svg viewBox="0 0 140 70" aria-hidden="true"><path d="M15 45 Q48 70 66 56 Q90 41 125 27" fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round"/></svg><span>3rd</span></button>
+<button class="answer" data-tone="4" aria-label="4th tone: sharply falling pitch" aria-pressed="false"><svg viewBox="0 0 140 70" aria-hidden="true"><path d="M15 16 L125 59" fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round"/></svg><span>4th</span></button>
+</div>
+<p id="feedback" class="feedback" role="status" aria-live="polite" aria-atomic="true"></p>
+<button id="next" class="primary next" hidden>Next</button>
+</div>
+<div id="complete" hidden>
+<h1 id="complete-title" tabindex="-1">You just listened for the shape—not only the letters.</h1>
+<div class="actions">
+<a class="action" href="/substack/拼音系列/1声调/">Back to Lesson 01</a>
+<a class="action" href="/substack/拼音系列/2汉字/">Next: characters</a>
+</div>
+</div>
+</section>
+</main>
+<script>
+'use strict';
+// Set these two destinations to the published lesson and characters pages if different.
+// Audio is served locally; no analytics, external resources, or network APIs are used.
+const questions=[
+{audio:'./tones-quiz-01-ma.mp3',correct:3,feedback:'That was mǎ: the third tone starts low, dips, then rises when said on its own.'},
+{audio:'./tones-quiz-02-ma.mp3',correct:4,feedback:'That was mà: the fourth tone falls sharply.'},
+{audio:'./tones-quiz-03-ma.mp3',correct:2,feedback:'That was má: the second tone rises.'}
+];
+const $=id=>document.getElementById(id);
+const answers=[...document.querySelectorAll('.answer')];
+const audio=new Audio();audio.preload='none';
+let index=0,solved=false,playRequest=0;
+function unavailable(){ $('audio-status').textContent='Audio is unavailable. Check your connection or try Play audio again.'; }
+audio.addEventListener('error',unavailable);
+function showQuestion(){
+playRequest++;audio.pause();audio.src=questions[index].audio;solved=false;
+$('intro').hidden=true;$('question').hidden=false;$('complete').hidden=true;
+$('feedback').textContent='';$('audio-status').textContent='';$('next').hidden=true;
+answers.forEach(button=>{button.disabled=false;button.classList.remove('selected','correct');button.setAttribute('aria-pressed','false');});
+$('play').setAttribute('aria-label',`Play audio for Mandarin syllable ${index+1} of 3`);
+$('instruction').focus();
+}
+$('start').addEventListener('click',showQuestion);
+$('play').addEventListener('click',async()=>{
+const request=++playRequest;$('audio-status').textContent='';
+try{audio.pause();audio.currentTime=0;await audio.play();}catch(error){if(request===playRequest)unavailable();}
+});
+answers.forEach(button=>button.addEventListener('click',()=>{
+if(solved)return;
+answers.forEach(other=>{other.classList.remove('selected');other.setAttribute('aria-pressed','false');});
+button.classList.add('selected');button.setAttribute('aria-pressed','true');
+if(Number(button.dataset.tone)===questions[index].correct){
+solved=true;button.classList.add('correct');
+$('feedback').textContent=questions[index].feedback;
+answers.forEach(other=>{other.disabled=true;});
+$('next').hidden=false;$('next').focus();
+}else{
+// Clearing before the next frame lets screen readers announce repeated retry feedback.
+$('feedback').textContent='';
+requestAnimationFrame(()=>{$('feedback').textContent='Try once more. Follow the pitch path, not the spelling.';});
+}
+}));
+$('next').addEventListener('click',()=>{
+playRequest++;audio.pause();
+if(index<questions.length-1){index++;showQuestion();}
+else{$('question').hidden=true;$('complete').hidden=false;$('complete-title').focus();}
+});
+</script>
+</body>
+</html>
